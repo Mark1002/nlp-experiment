@@ -4,7 +4,7 @@ import pandas as pd
 import jieba
 import jieba.posseg as pseg
 import re
-from gensim.models import word2vec
+from gensim.models import Word2Vec
 
 logging.basicConfig(level=logging.INFO)
 
@@ -36,9 +36,9 @@ class SimilarTagExperiment:
         jieba.set_dictionary("data/jieba_dict/dict.txt.big")
 
         try:
-            for index, document in enumerate(self.documents, 0):
+            for index, document in enumerate(self.documents[:100000], 0):
                 # 只取中文
-                document = "".join(re.findall(r"[\u4e00-\u9fa5]+", document))
+                # document = "".join(re.findall(r"[\u4e00-\u9fa5]+", document))
                 if index % 200 == 0:
                     logging.info("current document index:{}".format(index))
                 part_speech_list = list(pseg.cut(document))
@@ -46,17 +46,20 @@ class SimilarTagExperiment:
                 part_speech_list = list(filter(lambda x: x.word not in stop_word_list, part_speech_list))
                 # 篩選字詞
                 part_speech_list = self.filter_part_speech(['n', 'x', 'n', 'ng', 'nr', 'ns'], part_speech_list)
-                preprocessed_document = []
-                for part_speech in part_speech_list:
-                    preprocessed_document.append(part_speech.word)
-                    self.part_speech_mapping[part_speech.word] = part_speech.flag
+                preprocessed_document = [part_speech.word for part_speech in part_speech_list]
                 preprocessed_documents.append(preprocessed_document)
             self.documents = preprocessed_documents
         except Exception as e:
             logging.info("{}, index {}".format(str(e), index))
                      
     def train_word_to_vec(self):
-        self.model = word2vec.Word2Vec(self.documents, min_count=3, window=20, sg=1)
+        self.model = Word2Vec(
+            self.documents, 
+            size=250,
+            min_count=3, 
+            window=100, 
+        )
+        self.model.train(self.documents, total_examples=len(self.documents), epochs=10)
     
     # 指定濾掉的詞性，並過濾掉其他詞
     def filter_part_speech(self, pos_list, part_speech_list):
